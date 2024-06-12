@@ -45,10 +45,12 @@ async def validation_exception_handler(request, exc):
     print(f"OMG! The client sent invalid data!: {exc}")
     return await request_validation_exception_handler(request, exc)
 
+
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to Login API_SERVER with FastAPI"}
 
+
 @app.get("/healthcheck")
 async def get_healthcheck():
-    return {"status":"OK"}
+    return {"status": "OK"}

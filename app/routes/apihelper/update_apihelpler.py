@@ -1,6 +1,6 @@
 from database import mongo_conn
 from fastapi import BackgroundTasks, HTTPException
-from models.table import UserModel
+from model.table import UserModel
 from routes.apihelper import message, produce_messages
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
