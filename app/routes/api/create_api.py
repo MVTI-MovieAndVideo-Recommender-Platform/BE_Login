@@ -2,7 +2,7 @@ from typing import Annotated
 
 from database import mysql_conn
 from fastapi import BackgroundTasks, Depends, Header, HTTPException
-from models.table import get_accesstoken
+from model.table import get_accesstoken
 from routes.apihelper.create_apihelper import login_by_kakao, login_by_naver
 from sqlalchemy.ext.asyncio import AsyncSession
 
