@@ -1,0 +1,14 @@
+app/__pycache__
+app/auth/__pycache__
+app/auth/__pycache__
+app/database/__pycache__
+app/model/__pycache__
+app/routes/__pycache__
+app/routes/api/__pycache__
+app/routes/apihelper/__pycache__
+app/.env
+
+# gitignore가 작동하지 않을때 대처법
+# git rm -r --cached .
+# git add .
+# git commit -m "fixed untracked files"
