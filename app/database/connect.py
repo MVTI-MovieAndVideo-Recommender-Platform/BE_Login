@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     MYSQLDB_NAME: Optional[str] = None
     MYSQLDB_HOST: Optional[str] = None
     MONGODB_HOST: Optional[str] = None
+    KAFKA_HOST: Optional[str] = None
 
     class Config:
         env_file = ".env"
