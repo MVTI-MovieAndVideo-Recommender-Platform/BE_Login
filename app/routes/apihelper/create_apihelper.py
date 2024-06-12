@@ -110,3 +110,22 @@ async def insert_db_and_kafka_message(
 ):
     mysql_db.add_all([auth, user])
     await mysql_db.commit()
+    user_result, auth_result = await get_user_and_auth(user.user_id, auth.token, mysql_db)
+    if user_result and auth_result:
+        messages = [message("insert", "user", user_result), message("insert", "auth", auth_result)]
+        background_tasks.add_task(produce_messages, messages)
+
+
+async def get_user_and_auth(user_id: str, token: str, mysql_db: AsyncSession):
+    user_id2base64 = uuid_to_base64(uuid.UUID(user_id))
+    query = (
+        select(UserModel, AuthModel)
+        .join(AuthModel, user_id2base64 == AuthModel.token)
+        .where(UserModel.user_id == user_id)
+        .where(AuthModel.token == token)
+    )
+    result = await mysql_db.execute(query)
+    user_result, auth_result = result.first()  # Assuming there's one matching record
+    print(user_result, auth_result)
+
+    return user_result, auth_result
