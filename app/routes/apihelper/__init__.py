@@ -24,6 +24,22 @@ def uuid_to_base64(u: uuid.UUID) -> str:
     return base64.urlsafe_b64encode(u.bytes).rstrip(b"=").decode("utf-8")
 
 
+def message(type: str, table: str, model) -> dict:
+    try:
+        return {type: {table: model_to_dict(model)}}
+    except:
+        return {type: {table: model}}
+
+
+async def produce_messages(messages, topic="test-topic"):
+    for message in messages:
+        kafka_conn.produce(topic, value=json.dumps(message).encode("utf-8-sig"))
+        kafka_conn.poll(0)
+        await asyncio.sleep(0.5)  # 메시지 사이에 1초 간격을 둠
+    kafka_conn.flush()
+    print("produce complete")
+
+
 def model_to_dict(model_instance):
     data = {c.name: getattr(model_instance, c.name) for c in model_instance.__table__.columns}
     for key, value in data.items():
