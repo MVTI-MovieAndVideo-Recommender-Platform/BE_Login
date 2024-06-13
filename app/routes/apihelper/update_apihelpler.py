@@ -25,7 +25,9 @@ mbti_type = {
 }
 
 
-async def update_mysql_and_messaging(user_id: str, mbti: str, mysql_db: AsyncSession):
+async def update_mysql_and_messaging(
+    user_id: str, mbti: str, background_tasks: BackgroundTasks, mysql_db: AsyncSession
+):
     mbti = mbti.upper()
     if not mbti_type.get(mbti, None):
         raise HTTPException(status_code=400, detail=f"mbti 유형에 맞는 문자열이 아닙니다.")
@@ -52,7 +54,7 @@ async def update_mysql_and_messaging(user_id: str, mbti: str, mysql_db: AsyncSes
             "mbti": mbti,
             "last_update": update_time.last_update.strftime("%Y-%m-%dT%H:%M:%S"),
         }
-        await produce_messages([message("update", "user", model)])
+        background_tasks.add_task(produce_messages, [message("update", "user", model)])
         return "mbti가 업데이트 되었습니다."
     else:
         raise HTTPException(status_code=400, detail=f"MongoDB에 데이터가 존재하지 않습니다")
