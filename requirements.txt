@@ -15,6 +15,7 @@ pydantic_core==2.18.2
 motor==3.4.0
 pymongo==4.7.2
 requests==2.31.0
+asyncio==3.4.3
 asyncmy==0.2.9
 confluent-kafka==2.4.0
 motor==3.4.0
