@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
     await close_all_sessions()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, root_path="/member")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
