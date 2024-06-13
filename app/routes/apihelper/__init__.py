@@ -31,11 +31,11 @@ def message(type: str, table: str, model) -> dict:
         return {type: {table: model}}
 
 
-async def produce_messages(messages, topic="test-topic"):
+async def produce_messages(messages, topic="member-topic"):
     for message in messages:
         kafka_conn.produce(topic, value=json.dumps(message).encode("utf-8-sig"))
         kafka_conn.poll(0)
-        await asyncio.sleep(0.5)  # 메시지 사이에 1초 간격을 둠
+        await asyncio.sleep(0.5)
     kafka_conn.flush()
     print("produce complete")
 
