@@ -1,0 +1,63 @@
+name: Deploy FastAPI to AWS Lambda
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m venv venv
+        . venv/bin/activate
+        pip install -r requirements.txt
+        deactivate
+
+    - name: Package FastAPI app
+      run: |
+        zip -r function.zip app lambda_function.py
+
+    - name: Package dependencies for AWS Lambda layer
+      run: |
+        mkdir python
+        cp -r app/* python/
+        . venv/bin/activate
+        pip install -r requirements.txt -t python
+        deactivate
+        zip -r dependencies.zip python
+        rm -rf python
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-northeast-2
+
+    - name: Deploy FastAPI app to AWS Lambda
+      run: |
+        aws lambda update-function-code --function-name mvti-login-server --zip-file fileb://function.zip
+
+    - name: Delete previous layer versions
+      run: |
+        layer_versions=$(aws lambda list-layer-versions --layer-name mvti-login-server-dependencies --query 'LayerVersions[].Version' --output text)
+        for version in $layer_versions; do
+          aws lambda delete-layer-version --layer-name mvti-login-server-dependencies --version-number $version
+        done
+
+    - name: Deploy dependencies to AWS Lambda layer
+      run: |
+        layer_version=$(aws lambda publish-layer-version --layer-name mvti-login-server-dependencies --zip-file fileb://dependencies.zip --compatible-runtimes python3.11 --query 'LayerVersionArn' --output text) && \
+        aws lambda update-function-configuration --function-name mvti-login-server --layers "$layer_version" "arn:aws:lambda:ap-northeast-2:770693421928:layer:Klayers-p311-fastapi:6" "arn:aws:lambda:ap-northeast-2:770693421928:layer:Klayers-p311-pydantic:7"
