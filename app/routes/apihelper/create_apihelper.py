@@ -4,7 +4,7 @@ import uuid
 import httpx
 from auth.jwt import create_jwt
 from database import settings
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 from model.table import AuthModel, UserModel, get_accesstoken
 from routes.apihelper import message, produce_messages, uuid_to_base64
 from routes.apihelper.read_apihelper import user_auth_collection_check
@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # 카카오 로그인 함수 구현 CQRS : Create
 async def login_by_kakao(
     req: get_accesstoken,
-    background_tasks: BackgroundTasks,
     mysql_db: AsyncSession,
 ):
     print("this is login_by_kakao api")
@@ -32,7 +31,7 @@ async def login_by_kakao(
         user, auth = make_user_data(response, req.provider)
         res = await user_auth_collection_check(user.user_id, user.email, auth.provider)
         if type(res) == bool and res:
-            await insert_db_and_kafka_message(user, auth, background_tasks, mysql_db)
+            await insert_db_and_kafka_message(user, auth, mysql_db)
             return create_jwt(token=auth.token, provider=auth.provider)  # jwt 토큰 반환
         elif type(res) == str:  # 유저가 있으니 create_jwt 생성해서 반환
             return res
@@ -43,7 +42,6 @@ async def login_by_kakao(
 # 네이버 로그인 함수 구현 CQRS : Create
 async def login_by_naver(
     req: get_accesstoken,
-    background_tasks: BackgroundTasks,
     mysql_db: AsyncSession,
 ):
     print("this is login_by_naver api")
@@ -56,7 +54,7 @@ async def login_by_naver(
     user, auth = make_user_data(response, req.provider)
     res = await user_auth_collection_check(user.user_id, user.email, auth.provider)
     if type(res) == bool and res:
-        await insert_db_and_kafka_message(user, auth, background_tasks, mysql_db)
+        await insert_db_and_kafka_message(user, auth, mysql_db)
         return create_jwt(token=auth.token, provider=auth.provider)  # jwt 토큰 반환
     elif type(res) == str:  # 유저가 있으니 create_jwt 생성해서 반환
         return res
@@ -105,7 +103,6 @@ def make_user_data(response: dict, provider: str) -> (UserModel, AuthModel):  # 
 async def insert_db_and_kafka_message(
     user: UserModel,
     auth: AuthModel,
-    background_tasks: BackgroundTasks,
     mysql_db: AsyncSession,
 ):
     mysql_db.add_all([auth, user])
@@ -113,7 +110,7 @@ async def insert_db_and_kafka_message(
     user_result, auth_result = await get_user_and_auth(user.user_id, auth.token, mysql_db)
     if user_result and auth_result:
         messages = [message("insert", "user", user_result), message("insert", "auth", auth_result)]
-        background_tasks.add_task(produce_messages, messages)
+        await produce_messages(messages)
 
 
 async def get_user_and_auth(user_id: str, token: str, mysql_db: AsyncSession):
