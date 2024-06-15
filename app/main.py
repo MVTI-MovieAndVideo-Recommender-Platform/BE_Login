@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 
 from database import mysql_conn
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.exception_handlers import (
     http_exception_handler,
     request_validation_exception_handler,
@@ -25,8 +25,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # 허용할 HTTP 메서드
-    allow_headers=["*"],  # 허용할 HTTP 헤더
+    allow_methods=["POST", "PATCH", "DELETE"],  # 허용할 HTTP 메서드
+    allow_headers=["accesstoken", "state", "provider", "jwt"],  # 허용할 HTTPS 헤더
+    expose_headers=["jwt"],
 )
 
 app.include_router(login_router, prefix="")
