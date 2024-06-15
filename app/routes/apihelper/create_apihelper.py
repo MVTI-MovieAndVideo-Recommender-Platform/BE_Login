@@ -6,7 +6,7 @@ from auth.jwt import create_jwt
 from database import settings
 from fastapi import BackgroundTasks, HTTPException
 from model.table import AuthModel, UserModel, get_accesstoken
-from routes.apihelper import message, produce_messages, uuid_to_base64
+from routes.apihelper import message, model_to_dict, produce_messages, uuid_to_base64
 from routes.apihelper.read_apihelper import user_auth_collection_check
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,7 @@ async def login_by_kakao(
             raise HTTPException(status_code=400, detail="정보가 없습니다.")
         user, auth = make_user_data(response, req.provider)
         res = await user_auth_collection_check(user.user_id, user.email, auth.provider)
+        print("res : ", res)
         if type(res) == bool and res:
             await insert_db_and_kafka_message(user, auth, background_tasks, mysql_db)
             return create_jwt(token=auth.token, provider=auth.provider)  # jwt 토큰 반환
@@ -82,12 +83,13 @@ async def naver_get_data(accesstoken: str) -> dict:
 
 # 응답 받은 유저 정보를 db에 넘기기 위한 모델로 변환하는 함수
 def make_user_data(response: dict, provider: str) -> (UserModel, AuthModel):  # type: ignore
-    print("리스폰스 : ", response)
+    # print("리스폰스 : ", response)
     if provider == "kakao":
         response = response.get("kakao_account")
         user_gender = "M" if response.get("gender") == "male" else "F"
     elif provider == "naver":
-        response, user_gender = response.get("response", ""), response.get("gender", "")
+        response = response.get("response")
+        user_gender = response.get("gender")
     user_id = uuid.uuid5(namespace=uuid.NAMESPACE_OID, name=response.get("email")).__str__()
 
     user_data = UserModel(
@@ -111,6 +113,7 @@ async def insert_db_and_kafka_message(
     mysql_db.add_all([auth, user])
     await mysql_db.commit()
     user_result, auth_result = await get_user_and_auth(user.user_id, auth.token, mysql_db)
+    print(user_result)
     if user_result and auth_result:
         messages = [message("insert", "user", user_result), message("insert", "auth", auth_result)]
         background_tasks.add_task(produce_messages, messages)
@@ -128,4 +131,4 @@ async def get_user_and_auth(user_id: str, token: str, mysql_db: AsyncSession):
     user_result, auth_result = result.first()  # Assuming there's one matching record
     print(user_result, auth_result)
 
-    return user_result, auth_result
+    return model_to_dict(user_result), model_to_dict(auth_result)

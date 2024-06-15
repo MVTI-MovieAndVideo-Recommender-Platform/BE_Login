@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 async def update_mbti(
     background_tasks: BackgroundTasks,
-    jwt: Annotated[str, Header(convert_underscores=False)] = None,
+    jwt: Annotated[str, Header(convert_underscores=False)],
     mbti: str = None,
     mysql_db: AsyncSession = Depends(mysql_conn.get_db),
 ):
