@@ -5,7 +5,8 @@ import httpx
 from auth.jwt import create_jwt
 from database import settings
 from fastapi import BackgroundTasks, HTTPException
-from model.table import AuthModel, UserModel, get_accesstoken
+from fastapi.responses import RedirectResponse
+from model.table import AuthModel, UserModel
 from routes.apihelper import message, model_to_dict, produce_messages, uuid_to_base64
 from routes.apihelper.read_apihelper import user_auth_collection_check
 from sqlalchemy import select
@@ -14,47 +15,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # 카카오 로그인 함수 구현 CQRS : Create
 async def login_by_kakao(
-    req: get_accesstoken,
-    background_tasks: BackgroundTasks,
-    mysql_db: AsyncSession,
+    access_token: str, background_tasks: BackgroundTasks, mysql_db: AsyncSession
 ):
     print("this is login_by_kakao api")
-    url = "https://kapi.kakao.com/v2/user/me"
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Authorization": f"Bearer ${req.accesstoken}",
-    }
-    async with httpx.AsyncClient(http2=True) as client:
-        response = json.loads((await client.post(url, headers=headers)).text)
-        if not response:
-            raise HTTPException(status_code=400, detail="정보가 없습니다.")
-        user, auth = make_user_data(response, req.provider)
-        res = await user_auth_collection_check(user.user_id, user.email, auth.provider)
-        print("res : ", res)
-        if type(res) == bool and res:
-            await insert_db_and_kafka_message(user, auth, background_tasks, mysql_db)
-            return create_jwt(token=auth.token, provider=auth.provider)  # jwt 토큰 반환
-        elif type(res) == str:  # 유저가 있으니 create_jwt 생성해서 반환
-            return res
-        else:
-            raise HTTPException(status_code=400, detail=str(res))
-
-
-# 네이버 로그인 함수 구현 CQRS : Create
-async def login_by_naver(
-    req: get_accesstoken,
-    background_tasks: BackgroundTasks,
-    mysql_db: AsyncSession,
-):
-    print("this is login_by_naver api")
-    accesstoken = await naver_auth_token(req)
-    if not accesstoken:
-        raise HTTPException(status_code=400, detail="accesstoken이 반환이 안됩니다.")
-    response = await naver_get_data(accesstoken)
+    # response = await kakao_auth_token(code)
+    # if not response:
+    #     raise HTTPException(status_code=400, detail="access_token이 생성이 안됩니다.")
+    response = await kakao_get_data(access_token)
     if not response:
         raise HTTPException(status_code=400, detail="response가 반환이 안됩니다.")
-    user, auth = make_user_data(response, req.provider)
+    user, auth = make_user_data(response, "kakao")
     res = await user_auth_collection_check(user.user_id, user.email, auth.provider)
     if type(res) == bool and res:
         await insert_db_and_kafka_message(user, auth, background_tasks, mysql_db)
@@ -65,25 +35,79 @@ async def login_by_naver(
         raise HTTPException(status_code=400, detail=str(res))
 
 
-# 네이버 access_token 발급 함수
-async def naver_auth_token(req: get_accesstoken) -> str:
-    token_url = f"https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id={settings.NAVER_CLIENT_ID}&client_secret={settings.NAVER_CLIENT_SECRET}&code={req.accesstoken}&state={req.state}"
+# 네이버 로그인 함수 구현 CQRS : Create
+async def login_by_naver(
+    code: str, state: str, background_tasks: BackgroundTasks, mysql_db: AsyncSession
+):
+    print("this is login_by_naver api")
+    response = await naver_auth_token(code, state)
+    if not response:
+        raise HTTPException(status_code=400, detail="access_token이 생성이 안됩니다.")
+    response = await naver_get_data(response)
+    if not response:
+        raise HTTPException(status_code=400, detail="response가 반환이 안됩니다.")
+    user, auth = make_user_data(response, "naver")
+    res = await user_auth_collection_check(user.user_id, user.email, auth.provider)
+    if type(res) == bool and res:
+        await insert_db_and_kafka_message(user, auth, background_tasks, mysql_db)
+        return create_jwt(token=auth.token, provider=auth.provider)  # jwt 토큰 반환
+    elif type(res) == str:  # 유저가 있으니 create_jwt 생성해서 반환
+        return res
+    else:
+        raise HTTPException(status_code=400, detail=str(res))
+
+
+# 카카오 엑세스코드 발급
+# async def kakao_auth_token(code: str):
+#     async with httpx.AsyncClient() as client:
+#         token_response = await client.post(
+#             "https://kauth.kakao.com/oauth/token",
+#             data={
+#                 "grant_type": "authorization_code",
+#                 "client_id": settings.KAKAO_CLIENT_ID,
+#                 "redirect_uri": "http://localhost:8000/member/login/kakao/callback",
+#                 "code": code,
+#                 "client_secret": settings.KAKAO_RESTAPI_KEY,
+#             },
+#             headers={"Content-Type": "application/x-www-form-urlencoded"},
+#         )
+#     token_response.raise_for_status()
+#     return token_response.json().get("access_token", None)
+
+
+# 카카오 유저 데이터 발급 함수
+async def kakao_get_data(access_token: str) -> dict:
+    url = "https://kapi.kakao.com/v2/user/me"
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": f"Bearer ${access_token}",
+    }
     async with httpx.AsyncClient(http2=True) as client:
-        response = json.loads((await client.get(token_url)).text)
-        return response.get("access_token")
+        return json.loads((await client.get(url, headers=headers)).text)
+
+
+# 네이버 access_token 발급 함수
+async def naver_auth_token(code, state) -> str:
+    token_url = f"https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id={settings.NAVER_CLIENT_ID}&client_secret={settings.NAVER_CLIENT_SECRET}&code={code}&state={state}"
+    async with httpx.AsyncClient(http2=True) as client:
+        response = await client.get(token_url)
+        response.raise_for_status()
+        return json.loads(response.text).get("access_token")
 
 
 # 네이버 유저 데이터 발급 함수
-async def naver_get_data(accesstoken: str) -> dict:
+async def naver_get_data(access_token: str) -> dict:
     url = "https://openapi.naver.com/v1/nid/me"
-    headers = {"Authorization": f"Bearer {accesstoken}"}
+    headers = {"Authorization": f"Bearer {access_token}"}
     async with httpx.AsyncClient(http2=True) as client:
         return json.loads((await client.get(url, headers=headers)).text)
 
 
 # 응답 받은 유저 정보를 db에 넘기기 위한 모델로 변환하는 함수
 def make_user_data(response: dict, provider: str) -> (UserModel, AuthModel):  # type: ignore
-    # print("리스폰스 : ", response)
+    print("리스폰스 : ", response)
+
     if provider == "kakao":
         response = response.get("kakao_account")
         user_gender = "M" if response.get("gender") == "male" else "F"
