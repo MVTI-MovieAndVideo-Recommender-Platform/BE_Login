@@ -18,3 +18,4 @@ requests==2.31.0
 asyncmy==0.2.9
 confluent-kafka==2.4.0
 motor==3.4.0
+itsdangerous==2.2.0
