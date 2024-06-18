@@ -38,14 +38,3 @@ class AuthModel(Base):
     created_at: Mapped[DateTime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
-
-
-# 로그인 인증 클래스
-class AccessTokenRequest(BaseModel):
-    accesstoken: str
-    state: Optional[str] = None
-    provider: str
-
-
-def get_accesstoken(accesstoken: str, state: str, provider: str) -> AccessTokenRequest:
-    return AccessTokenRequest(accesstoken=accesstoken, state=state, provider=provider)
