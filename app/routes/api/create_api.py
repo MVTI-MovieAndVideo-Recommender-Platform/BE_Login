@@ -6,7 +6,6 @@ from fastapi import BackgroundTasks, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from routes.apihelper.create_apihelper import login_by_kakao, login_by_naver
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.middleware.sessions import SessionMiddleware
 
 
 async def kakao_login(
@@ -57,13 +56,13 @@ async def kakao_callback(code: str, request: Request):
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
     token_response.raise_for_status()
-    print(token_response.json().get("access_token", None))
+    print("access_token : ", token_response.json().get("access_token", None))
     request.session["access_token"] = token_response.json().get("access_token", None)
     print(
-        "리디렉션 전 uri ",
-        f"http://localhost:3000/member/login/kakao/callback?access_token={token_response.json().get('access_token', None)}",
+        "리디렉션 할 uri ",
+        f"https://mvti.site/login/kakao/callback?access_token={token_response.json().get('access_token', None)}",
     )
 
     return RedirectResponse(
-        url=f"http://localhost:3000/login/kakao/callback?access_token={token_response.json().get('access_token', None)}"
+        url=f"https://mvti.site/login/kakao/callback?access_token={token_response.json().get('access_token', None)}"
     )
