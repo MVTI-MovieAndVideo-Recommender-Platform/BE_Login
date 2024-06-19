@@ -60,9 +60,9 @@ async def kakao_callback(code: str, request: Request):
     request.session["access_token"] = token_response.json().get("access_token", None)
     print(
         "리디렉션 할 uri ",
-        f"https://mvti.site/login/kakao/callback?access_token={token_response.json().get('access_token', None)}",
+        f"https://mvti.site/#/login/kakao/callback?access_token={token_response.json().get('access_token', None)}",
     )
 
     return RedirectResponse(
-        url=f"https://mvti.site/login/kakao/callback?access_token={token_response.json().get('access_token', None)}"
+        url=f"https://mvti.site/#/login/kakao/callback?access_token={token_response.json().get('access_token', None)}"
     )
