@@ -64,5 +64,5 @@ async def kakao_callback(code: str, request: Request):
     )
 
     return RedirectResponse(
-        url=f"http://localhost:3000/login/kakao/callback?access_token={token_response.json().get('access_token', None)}"
+        url=f"https://mvti.site/login/kakao/callback?access_token={token_response.json().get('access_token', None)}"
     )
